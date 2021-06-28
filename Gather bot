@@ -1,0 +1,148 @@
+from discord.ext import commands
+from discord.utils import get
+import discord
+import datetime
+from datetime import datetime
+from config import *
+import asyncio
+
+# Declare discord client
+client = commands.Bot(command_prefix = '.')
+
+# Global variables
+global members 
+global gatherMessageID
+global ourMessageID
+gatherMessageID = Gather message ID
+ourMessageID = Message ID 
+members = []
+
+# Debug
+print('Members = {0}'.format(members))
+
+# Print status message after bot loads
+@client.event
+async def on_ready():
+    print('Bot is ready.')
+
+@client.event
+async def ch_pr():
+    await client.wait_until_ready()
+# Setting the playing custom status
+    while not client.is_closed():
+        await client.change_presence(activity=discord.Game(name=f'Gathers = {0}/12 | .help'.format(members)))
+        await asyncio.sleep(10)
+        
+
+
+
+# Add reaction event monitor
+@client.event
+async def on_raw_reaction_add(payload):
+    
+    # Determine action based on message that received reaction.
+    if payload.message_id == ourMessageID:
+        if ourMessageID == payload.message_id:
+            member = payload.member 
+            guild = member.guild
+
+            emoji = payload.emoji.name
+            if emoji == '🟥':
+                role = discord.utils.get(guild.roles, name="NA")
+            elif emoji == '🟨':
+                role = discord.utils.get(guild.roles, name="EU")
+            elif emoji == '🟩':
+                role = discord.utils.get(guild.roles, name="Asia")   
+            elif emoji == '🟪':
+                role = discord.utils.get(guild.roles, name="Oceania") 
+            await member.add_roles(role)
+    elif gatherMessageID == payload.message_id:
+        emoji = payload.emoji.name
+        if emoji == '🎇':
+            members.append(payload.member)
+            if len(members) <=12:
+                print('Member added.  Total members: {0}'.format(len(members)))    
+            else:
+                print('Sending message')
+                gather_names = []
+                for i in members:
+                    gather_names.append(i.name)
+                for user in members:
+                    msg = 'The gather is ready. Members: {0}. \nPlease join the gather-lobby voice channel now.'.format(gather_names)
+                    await user.send(msg)
+                members.clear()
+                
+                    
+    
+
+
+@client.event
+async def on_raw_reaction_remove(payload):
+    if payload.message_id == ourMessageID:
+        if ourMessageID == payload.message_id:
+            guild = await(client.fetch_guild(payload.guild_id))
+            emoji = payload.emoji.name
+            if emoji == '🟥':
+                role = discord.utils.get(guild.roles, name="NA")
+            elif emoji == '🟨':
+                role = discord.utils.get(guild.roles, name="EU")
+            elif emoji == '🟩':
+                role = discord.utils.get(guild.roles, name="Asia")   
+            elif emoji == '🟪':
+                role = discord.utils.get(guild.roles, name="Oceania")
+            member = await(guild.fetch_member(payload.user_id))
+            if member is not None:
+                await member.remove_roles(role)
+            else:
+                ('Member not found!')
+    elif payload.message_id == gatherMessageID:
+        for member in members:
+            if member == payload.member:
+                members.remove(member)
+                print('Member removed. Total members: {0}'.format(len(members)))
+            else:
+                print('Member not found')
+        
+
+@client.command(pass_context=True)
+@commands.has_permissions(manage_messages=True)
+async def bye(ctx):
+    embed = discord.Embed(
+        title="Welcome to KNSL!",
+        description="We are a Natural Selection 2 League discord, react below to select your region(s). They are in order of NA,EU,Asia,Oce.",
+        timestamp=datetime.now(),
+    )
+    msg = await ctx.send(embed=embed)
+    await msg.add_reaction('🟥')
+    await msg.add_reaction('🟨')
+    await msg.add_reaction('🟩')
+    await msg.add_reaction('🟪')
+    await ctx.message.add_reaction('✅')
+
+
+@client.command(pass_context=True)
+@commands.has_permissions(manage_messages=True)
+async def gather(ctx):
+    embed = discord.Embed(
+        title="React below to join the gather.",
+        description="Number of people in the gather : ",
+        timestamp=datetime.now(),
+    )
+    msg = await ctx.send(embed=embed)
+    await msg.add_reaction('🎇')
+    await ctx.message.add_reaction('✅')
+    await ctx.send(f'Number of people in gather: {0}'.format(members.count))
+
+
+@client.command()
+@commands.has_permissions(manage_messages=True)
+async def clear(ctx, amount=10):
+    await ctx.channel.purge(limit=amount)
+
+@client.command()
+async def dm(ctx, user: discord.User, *, message=None):
+    message = message or "Beep...Test...boop..."
+    await user.send(message)
+
+client.loop.create_task(ch_pr())
+client.run("BOT TOKEN HERE")
